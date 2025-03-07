@@ -58,8 +58,10 @@ public class Commit implements Serializable {
             this.blobs = parent.blobs;
 //            this.blobs.putAll(blobs);
             blobs.forEach((k, v) -> {
-                if(v != null){
+                if(!v.startsWith("-")){
                     this.blobs.put(k, v);
+                }else{
+                    this.blobs.remove(k);
                 }
             });
         }
@@ -86,7 +88,7 @@ public class Commit implements Serializable {
         List<String> commitIds = Utils.plainFilenamesIn(Repository.COMMIT_DIR);
         List<String> matching = commitIds.stream()
                 .filter(id -> id.startsWith(commitId))
-                .collect(Collectors.toList());
+                .toList();
         if(matching.isEmpty()){
             throw new GitletException("No commit with that id exists.");
         }else if(matching.size() > 1) {

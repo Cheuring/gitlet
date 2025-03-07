@@ -36,7 +36,6 @@ public class Repository {
     public static final File STAGE_FILE = join(GITLET_DIR, "stage");
     public static final File HEAD_FILE = join(GITLET_DIR, "HEAD");
 
-    /* TODO: fill in the rest of this class. */
     public static void init() {
         if(GITLET_DIR.exists()){
             throw new GitletException("A Gitlet version-control system already exists in the current directory.");
@@ -61,10 +60,19 @@ public class Repository {
         if(!file.exists()){
             throw new GitletException("File does not exist.");
         }
-        Blob blob = new Blob(file);
-        blob.save();
 
-        Stage.addStage(fileName, blob.getId());
+        Stage stage = Stage.load();
+        Blob blob = new Blob(file);
+        Commit currentCommit = Commit.load(getBranchPointer(readContentsAsString(HEAD_FILE)));
+        if(currentCommit.containsFile(fileName) && currentCommit.getBlobId(fileName).equals(blob.getId())){
+            stage.blobs.remove(fileName);
+            stage.save();
+            return;
+        }
+
+        stage.add(fileName, blob.getId());
+        blob.save();
+        stage.save();
     }
 
     public static void commit(String message) {
@@ -96,7 +104,7 @@ public class Repository {
         }
 
         if(currentCommit.containsFile(filename)){
-            stage.add(filename, null);
+            stage.add(filename, "-" + currentCommit.getBlobId(filename));
             stage.save();
             Utils.restrictedDelete(file);
         }
@@ -108,10 +116,14 @@ public class Repository {
         while(currentCommit != null){
             System.out.println("===");
             System.out.println("commit " + currentCommit.getID());
+            List<String> parents = currentCommit.getParents();
+            if (parents.size() > 1) {
+                System.out.println("Merge: " + parents.get(0).substring(0, 7) + " " + parents.get(1).substring(0, 7));
+            }
             System.out.println("Date: " + currentCommit.getTimestamp());
             System.out.println(currentCommit.getMessage());
             System.out.println();
-            currentCommit = currentCommit.getParents().isEmpty() ? null : Commit.load(currentCommit.getParents().get(0));
+            currentCommit = parents.isEmpty() ? null : Commit.load(parents.get(0));
         }
     }
 
@@ -215,7 +227,7 @@ public class Repository {
                 continue;
             }
             // Not staged for removal, but tracked in the current commit and deleted from the working directory.
-            if((stagedBlobId == null && !stage.blobs.containsKey(filename)) && commitBlobId != null && !fileExists){
+            if(!(stagedBlobId != null && stagedBlobId.startsWith("-")) && commitBlobId != null && !fileExists){
                 modifiedFiles.add(filename + " (deleted)");
             }
         }
@@ -309,7 +321,7 @@ public class Repository {
         if(branchName.equals(readContentsAsString(HEAD_FILE))){
             throw new GitletException("Cannot remove the current branch.");
         }
-        restrictedDelete(branchFile);
+        branchFile.delete();
     }
 
     public static void reset(String commitId) {
@@ -343,7 +355,7 @@ public class Repository {
 
     public static void merge(String mergeBranch) {
         Stage stage = Stage.load();
-        if(stage.isEmpty()){
+        if(!stage.isEmpty()){
             throw new GitletException("You have uncommitted changes.");
         }
 
