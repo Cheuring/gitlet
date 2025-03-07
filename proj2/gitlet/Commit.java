@@ -88,7 +88,7 @@ public class Commit implements Serializable {
         List<String> commitIds = Utils.plainFilenamesIn(Repository.COMMIT_DIR);
         List<String> matching = commitIds.stream()
                 .filter(id -> id.startsWith(commitId))
-                .toList();
+                .collect(Collectors.toList());
         if(matching.isEmpty()){
             throw new GitletException("No commit with that id exists.");
         }else if(matching.size() > 1) {
