@@ -76,13 +76,17 @@ public class Repository {
     }
 
     public static void commit(String message) {
+        _commit(message, getBranchPointer(readContentsAsString(HEAD_FILE)));
+    }
+
+    private static void _commit(String message, String... parents) {
         Stage stage = Stage.load();
         if(stage.blobs.isEmpty()){
             throw new GitletException("No changes added to the commit.");
         }
 
         String currentBranch = readContentsAsString(HEAD_FILE);
-        Commit commit = new Commit(message, stage.blobs, List.of(getBranchPointer(currentBranch)));
+        Commit commit = new Commit(message, stage.blobs, Arrays.asList(parents));
         commit.save();
         forwardBranch(currentBranch, commit.getID());
         Stage.clear();
@@ -167,7 +171,7 @@ public class Repository {
         Stage stage = Stage.load();
         List<String> removedFiles = new ArrayList<>();
         for(String fileName : stage.blobs.keySet()){
-            if(stage.blobs.get(fileName) == null){
+            if(stage.blobs.get(fileName).startsWith("-")){
                 removedFiles.add(fileName);
             }else {
                 System.out.println(fileName);
@@ -255,10 +259,8 @@ public class Repository {
             checkoutBranch(args[0]);
         }else if(args.length == 2){
             checkoutFile(args[1]);
-        }else if(args.length == 3){
-            checkoutFile(args[2], args[0]);
         }else{
-            throw new GitletException("Incorrect operands.");
+            checkoutFile(args[2], args[0]);
         }
     }
 
@@ -435,11 +437,11 @@ public class Repository {
                 StringBuilder conflictContent = new StringBuilder();
                 conflictContent.append("<<<<<<< HEAD\n");
                 if(currentBlobId != null){
-                    conflictContent.append(Blob.load(currentBlobId).getContent());
+                    conflictContent.append(new String(Blob.load(currentBlobId).getContent()));
                 }
                 conflictContent.append("=======\n");
                 if(mergeBlobId != null){
-                    conflictContent.append(Blob.load(mergeBlobId).getContent());
+                    conflictContent.append(new String(Blob.load(mergeBlobId).getContent()));
                 }
                 conflictContent.append(">>>>>>>\n");
                 writeContents(join(CWD, filename), conflictContent.toString().getBytes());
@@ -456,7 +458,7 @@ public class Repository {
             System.out.println("Encountered a merge conflict.");
         }
 
-        commit("Merged " + mergeBranch + " into " + currentBranch + ".");
+        _commit("Merged " + mergeBranch + " into " + currentBranch + ".", currentBranchPointer, mergeBranchPointer);
     }
 
     private static String findSplitPoint(String currentCommitId, String mergeCommitId) {

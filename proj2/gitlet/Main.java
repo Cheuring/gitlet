@@ -48,9 +48,15 @@ public class Main {
                         Repository.checkout(args[1]);
                     }else if(args.length == 3){
                         // checkout -- [file name]
+                        if(!args[1].equals("--")){
+                            throw new GitletException("Incorrect operands.");
+                        }
                         Repository.checkout(args[1], args[2]);
                     }else if(args.length == 4){
                         // checkout [commit id] -- [file name]
+                        if(!args[2].equals("--")){
+                            throw new GitletException("Incorrect operands.");
+                        }
                         Repository.checkout(args[1], args[2], args[3]);
                     }else{
                         throw new GitletException("Incorrect operands.");
