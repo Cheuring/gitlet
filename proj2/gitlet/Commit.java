@@ -56,14 +56,14 @@ public class Commit implements Serializable {
         }else{
             Commit parent = load(parents.get(0));
             this.blobs = parent.blobs;
-//            this.blobs.putAll(blobs);
-            blobs.forEach((k, v) -> {
-                if(!v.startsWith("-")){
-                    this.blobs.put(k, v);
-                }else{
-                    this.blobs.remove(k);
-                }
-            });
+            this.blobs.putAll(blobs);
+//            blobs.forEach((k, v) -> {
+//                if(!v.startsWith("-")){
+//                    this.blobs.put(k, v);
+//                }else{
+//                    this.blobs.remove(k);
+//                }
+//            });
         }
     }
 
@@ -106,7 +106,7 @@ public class Commit implements Serializable {
     }
 
     public boolean containsFile(String fileName){
-        return blobs.containsKey(fileName);
+        return blobs.containsKey(fileName) && !blobs.get(fileName).startsWith("-");
     }
 
     public String getBlobId(String fileName){

@@ -226,7 +226,7 @@ public class Repository {
                 }
             }
             // Staged for addition, but deleted in the working directory;
-            if(stagedBlobId != null && !fileExists){
+            if(stagedBlobId != null && !stagedBlobId.startsWith("-") && !fileExists){
                 modifiedFiles.add(filename + " (deleted)");
                 continue;
             }
@@ -335,7 +335,7 @@ public class Repository {
         Commit commit = Commit.load(commitId);
         List<String> untrackedFiles = getUntrackedFiles();
         if(!untrackedFiles.isEmpty()){
-            throw new GitletException("There is an untracked file in the way; delete it or add it first.");
+            throw new GitletException("There is an untracked file in the way; delete it, or add and commit it first.");
         }
 
         for(String fileName : plainFilenamesIn(CWD)){
@@ -348,6 +348,10 @@ public class Repository {
         }
 
         commit.getBlobs().forEach((fileName, blobId) -> {
+            if(blobId.startsWith("-")){
+                Utils.restrictedDelete(join(CWD, fileName));
+                return;
+            }
             Blob blob = Blob.load(blobId);
             writeContents(join(CWD, fileName), blob.getContent());
         });
@@ -408,10 +412,10 @@ public class Repository {
             String currentBlobId = currentCommit.getBlobId(filename);
             String mergeBlobId = mergeCommit.getBlobId(filename);
 
-            boolean currentModified = !((currentBlobId == null && splitBlobId == null) || (currentBlobId != null && currentBlobId.equals(splitBlobId)));
-            boolean mergeModified = !((mergeBlobId == null && splitBlobId == null) || (mergeBlobId != null && mergeBlobId.equals(splitBlobId)));
-            boolean mergeRemoved = mergeBlobId == null && splitBlobId != null;
-            boolean contentSame = (currentBlobId == null && mergeBlobId == null) || (currentBlobId != null && currentBlobId.equals(mergeBlobId));
+            boolean currentModified = currentBlobId != null && !currentBlobId.equals(splitBlobId);
+            boolean mergeModified = mergeBlobId != null && !mergeBlobId.equals(splitBlobId);
+            boolean mergeRemoved = mergeBlobId != null && mergeBlobId.startsWith("-");
+            boolean contentSame = currentBlobId != null && currentBlobId.equals(mergeBlobId);
 
             // 1. modified/created in given, not modified in current -> checkout and stage
             if(!mergeRemoved && mergeModified && !currentModified){
