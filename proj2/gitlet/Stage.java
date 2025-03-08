@@ -3,9 +3,10 @@ package gitlet;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 public class Stage implements Serializable {
-    public Map<String, String> blobs = new HashMap<>();
+    public TreeMap<String, String> blobs = new TreeMap<>();
 
     public static Stage load() {
         return Utils.readObject(Repository.STAGE_FILE, Stage.class);

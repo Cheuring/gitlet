@@ -2,14 +2,10 @@ package gitlet;
 
 // TODO: any imports you need here
 
-import java.io.File;
 import java.io.Serializable;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Date; // TODO: You'll likely use this in this class
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /** Represents a gitlet commit object.
@@ -28,7 +24,7 @@ public class Commit implements Serializable {
      */
     private Date timestamp;
     private List<String> parents;
-    private Map<String, String> blobs;
+    private TreeMap<String, String> blobs;
 
     /** The message of this Commit. */
     private String message;
@@ -44,10 +40,10 @@ public class Commit implements Serializable {
     }
 
     /* TODO: fill in the rest of this class. */
-    public Commit(String message, Map<String, String> blobs, List<String> parents){
+    public Commit(String message, TreeMap<String, String> blobs, List<String> parents){
         this(new Date(), message, blobs, parents);
     }
-    public Commit(Date timestamp, String message, Map<String, String> blobs, List<String> parents){
+    public Commit(Date timestamp, String message, TreeMap<String, String> blobs, List<String> parents){
         this.timestamp = timestamp;
         this.message = message;
         this.parents = parents;
@@ -115,5 +111,16 @@ public class Commit implements Serializable {
 
     public Map<String, String> getBlobs() {
         return blobs;
+    }
+
+    public void log(){
+        System.out.println("===");
+        System.out.println("commit " + getID());
+        if(parents.size() > 1){
+            System.out.println("Merge: " + parents.get(0).substring(0, 7) + " " + parents.get(1).substring(0, 7));
+        }
+        System.out.println("Date: " + getTimestamp());
+        System.out.println(message);
+        System.out.println();
     }
 }

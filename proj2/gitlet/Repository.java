@@ -49,7 +49,7 @@ public class Repository {
         Stage.clear();
         Utils.writeContents(HEAD_FILE, "master");
 
-        Commit initialCommit = new Commit(new Date(0), "initial commit", new HashMap<>(), new ArrayList<>());
+        Commit initialCommit = new Commit(new Date(0), "initial commit", new TreeMap<>(), new ArrayList<>());
         initialCommit.save();
 
         forwardBranch("master", initialCommit.getID());
@@ -118,15 +118,8 @@ public class Repository {
         String currentBranch = readContentsAsString(HEAD_FILE);
         Commit currentCommit = Commit.load(getBranchPointer(currentBranch));
         while(currentCommit != null){
-            System.out.println("===");
-            System.out.println("commit " + currentCommit.getID());
+            currentCommit.log();
             List<String> parents = currentCommit.getParents();
-            if (parents.size() > 1) {
-                System.out.println("Merge: " + parents.get(0).substring(0, 7) + " " + parents.get(1).substring(0, 7));
-            }
-            System.out.println("Date: " + currentCommit.getTimestamp());
-            System.out.println(currentCommit.getMessage());
-            System.out.println();
             currentCommit = parents.isEmpty() ? null : Commit.load(parents.get(0));
         }
     }
@@ -134,11 +127,7 @@ public class Repository {
     public static void globalLog() {
         Utils.plainFilenamesIn(COMMIT_DIR).forEach(commitId -> {
             Commit commit = Commit.load(commitId);
-            System.out.println("===");
-            System.out.println("commit " + commit.getID());
-            System.out.println("Date: " + commit.getTimestamp());
-            System.out.println(commit.getMessage());
-            System.out.println();
+            commit.log();
         });
     }
 
@@ -232,7 +221,9 @@ public class Repository {
             }
             // Not staged for removal, but tracked in the current commit and deleted from the working directory.
             if(!(stagedBlobId != null && stagedBlobId.startsWith("-")) && commitBlobId != null && !fileExists){
-                modifiedFiles.add(filename + " (deleted)");
+                if(!commitBlobId.startsWith("-")) {
+                    modifiedFiles.add(filename + " (deleted)");
+                }
             }
         }
 
