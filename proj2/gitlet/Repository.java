@@ -104,14 +104,14 @@ public class Repository {
         // unstage the file if it is staged
         if(stage.blobs.containsKey(filename)){
             stage.blobs.remove(filename);
-            stage.save();
         }
 
         if(currentCommit.containsFile(filename)){
             stage.add(filename, "-" + currentCommit.getBlobId(filename));
-            stage.save();
-            Utils.restrictedDelete(file);
         }
+
+        stage.save();
+        Utils.restrictedDelete(file);
     }
 
     public static void log() {
@@ -373,6 +373,7 @@ public class Repository {
             throw new GitletException("No common ancestor between the current branch and the given branch.");
         }
         if(splitPoint.equals(currentBranchPointer)){
+            checkoutCommit(mergeBranchPointer);
             forwardBranch(currentBranch, mergeBranchPointer);
             System.out.println("Current branch fast-forwarded.");
             return;
@@ -398,6 +399,8 @@ public class Repository {
         allFiles.addAll(currentCommit.getBlobs().keySet());
         allFiles.addAll(mergeCommit.getBlobs().keySet());
 
+        List<String> untrackedFiles = getUntrackedFiles();
+
         for(String filename : allFiles){
             String splitBlobId = splitCommit.getBlobId(filename);
             String currentBlobId = currentCommit.getBlobId(filename);
@@ -410,6 +413,9 @@ public class Repository {
 
             // 1. modified/created in given, not modified in current -> checkout and stage
             if(!mergeRemoved && mergeModified && !currentModified){
+                if(untrackedFiles.contains(filename)){
+                    throw new GitletException("There is an untracked file in the way; delete it, or add and commit it first.");
+                }
                 checkoutFile(filename, mergeBranchPointer);
                 Stage.addStage(filename, mergeBlobId);
                 continue;
@@ -424,6 +430,9 @@ public class Repository {
             }
             // 4. removed in given, not modified in current -> git rm
             if(mergeRemoved && !currentModified){
+                if(untrackedFiles.contains(filename)){
+                    throw new GitletException("There is an untracked file in the way; delete it, or add and commit it first.");
+                }
                 rm(filename);
                 continue;
             }
@@ -431,11 +440,11 @@ public class Repository {
             if(mergeModified && currentModified && !contentSame){
                 StringBuilder conflictContent = new StringBuilder();
                 conflictContent.append("<<<<<<< HEAD\n");
-                if(currentBlobId != null){
+                if(currentBlobId != null && !currentBlobId.startsWith("-")){
                     conflictContent.append(new String(Blob.load(currentBlobId).getContent()));
                 }
                 conflictContent.append("=======\n");
-                if(mergeBlobId != null){
+                if(mergeBlobId != null && !mergeBlobId.startsWith("-")){
                     conflictContent.append(new String(Blob.load(mergeBlobId).getContent()));
                 }
                 conflictContent.append(">>>>>>>\n");

@@ -10,10 +10,15 @@ public class Main {
      */
     public static void main(String[] args) {
         try{
-            if(args.length == 0){
+            if(args.length == 0 || args[0].isBlank()){
                 throw new GitletException("Please enter a command.");
             }
             String firstArg = args[0];
+            if(!firstArg.equals("init")){
+                if(!Repository.GITLET_DIR.exists() || !Repository.GITLET_DIR.isDirectory()){
+                    throw new GitletException("Not in an initialized Gitlet directory.");
+                }
+            }
             switch(firstArg) {
                 case "init":
                     Repository.init();
