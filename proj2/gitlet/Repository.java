@@ -98,20 +98,20 @@ public class Repository {
         String currentBranch = readContentsAsString(HEAD_FILE);
         Commit currentCommit = Commit.load(getBranchPointer(currentBranch));
 
-        if(!stage.blobs.containsKey(filename) && !currentCommit.containsFile(filename)){
+        if(!stage.blobs.containsKey(filename) && !currentCommit.getBlobs().containsKey(filename)){
             throw new GitletException("No reason to remove the file.");
         }
         // unstage the file if it is staged
         if(stage.blobs.containsKey(filename)){
             stage.blobs.remove(filename);
+            stage.save();
         }
 
-        if(currentCommit.containsFile(filename)){
+        if(currentCommit.getBlobs().containsKey(filename)){
             stage.add(filename, "-" + currentCommit.getBlobId(filename));
+            stage.save();
+            Utils.restrictedDelete(file);
         }
-
-        stage.save();
-        Utils.restrictedDelete(file);
     }
 
     public static void log() {
