@@ -467,19 +467,29 @@ public class Repository {
 
     private static String findSplitPoint(String currentCommitId, String mergeCommitId) {
         Set<String> mergeAncestors = new HashSet<>();
+        Stack<String> another = new Stack<>();
+        another.push(mergeCommitId);
 
-        while(mergeCommitId != null){
+        while(!another.isEmpty()){
+            mergeCommitId = another.pop();
             mergeAncestors.add(mergeCommitId);
             List<String> parents = Commit.load(mergeCommitId).getParents();
-            mergeCommitId = parents.isEmpty() ? null : parents.get(0);
+            for(String parent : parents){
+                another.push(parent);
+            }
         }
 
-        while(currentCommitId != null){
+        Queue<String> queue = new LinkedList<>();
+        queue.add(currentCommitId);
+        while(!queue.isEmpty()){
+            currentCommitId = queue.poll();
             if(mergeAncestors.contains(currentCommitId)){
                 return currentCommitId;
             }
             List<String> parents = Commit.load(currentCommitId).getParents();
-            currentCommitId = parents.isEmpty() ? null : parents.get(0);
+            for(String parent : parents){
+                queue.add(parent);
+            }
         }
 
         return null;
