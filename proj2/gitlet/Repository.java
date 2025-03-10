@@ -1,9 +1,9 @@
 package gitlet;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.*;
 
+import static gitlet.Commit.getFullCommitId;
 import static gitlet.Utils.*;
 
 // TODO: any imports you need here
@@ -35,6 +35,8 @@ public class Repository {
     public static final File BLOB_DIR = join(OBJECTS_DIR, "blob");
     public static final File STAGE_FILE = join(GITLET_DIR, "stage");
     public static final File HEAD_FILE = join(GITLET_DIR, "HEAD");
+    public static final File CONFIG_FILE = join(GITLET_DIR, "config");
+    public static final File REMOTE_DIR = join(REFS_DIR, "remotes");
 
     public static void init() {
         if(GITLET_DIR.exists()){
@@ -46,7 +48,9 @@ public class Repository {
         HEADS_DIR.mkdir();
         COMMIT_DIR.mkdir();
         BLOB_DIR.mkdir();
+        REMOTE_DIR.mkdir();
         Stage.clear();
+        Config.clear();
         Utils.writeContents(HEAD_FILE, "master");
 
         Commit initialCommit = new Commit(new Date(0), "initial commit", new TreeMap<>(), new ArrayList<>());
@@ -256,13 +260,18 @@ public class Repository {
     }
 
     private static void checkoutBranch(String branchName) {
-        if(!join(HEADS_DIR, branchName).exists()){
+        File prefix = HEADS_DIR;
+        if(branchName.contains("/")){
+            branchName = branchName.replace("/", File.separator);
+            prefix = REMOTE_DIR;
+        }
+        if(!join(prefix, branchName).exists()){
             throw new GitletException("No such branch exists.");
         }
         if(branchName.equals(readContentsAsString(HEAD_FILE))){
             throw new GitletException("No need to checkout the current branch.");
         }
-        checkoutCommit(getBranchPointer(branchName));
+        checkoutCommit(getBranchPointer(prefix, branchName));
         changeBranch(branchName);
     }
 
@@ -289,12 +298,24 @@ public class Repository {
     }
 
     private static void forwardBranch(String branch, String commitId) {
-        File branchFile = join(HEADS_DIR, branch);
+        File prefix = HEADS_DIR;
+        if(branch.contains(File.separator)){
+            prefix = REMOTE_DIR;
+        }
+        File branchFile = join(prefix, branch);
         writeContents(branchFile, commitId);
     }
 
     private static String getBranchPointer(String branch) {
-        File branchFile = join(HEADS_DIR, branch);
+        File prefix = HEADS_DIR;
+        if(branch.contains(File.separator)){
+            prefix = REMOTE_DIR;
+        }
+        return getBranchPointer(prefix, branch);
+    }
+
+    private static String getBranchPointer(File prefix, String branch) {
+        File branchFile = join(prefix, branch);
         return readContentsAsString(branchFile);
     }
 
@@ -318,6 +339,9 @@ public class Repository {
     }
 
     public static void reset(String commitId) {
+        if(commitId.length() < 40){
+            commitId = getFullCommitId(commitId);
+        }
         checkoutCommit(commitId);
         forwardBranch(readContentsAsString(HEAD_FILE), commitId);
     }
@@ -351,12 +375,16 @@ public class Repository {
     }
 
     public static void merge(String mergeBranch) {
+        _merge(HEADS_DIR, mergeBranch);
+    }
+
+    private static void _merge(File prefix, String mergeBranch) {
         Stage stage = Stage.load();
         if(!stage.isEmpty()){
             throw new GitletException("You have uncommitted changes.");
         }
 
-        if(!join(HEADS_DIR, mergeBranch).exists()){
+        if(!join(prefix, mergeBranch).exists()){
             throw new GitletException("A branch with that name does not exist.");
         }
 
@@ -365,7 +393,7 @@ public class Repository {
             throw new GitletException("Cannot merge a branch with itself.");
         }
 
-        String mergeBranchPointer = getBranchPointer(mergeBranch);
+        String mergeBranchPointer = getBranchPointer(prefix, mergeBranch);
         String currentBranchPointer = getBranchPointer(currentBranch);
         String splitPoint = findSplitPoint(currentBranchPointer, mergeBranchPointer);
 
@@ -493,5 +521,120 @@ public class Repository {
         }
 
         return null;
+    }
+
+    public static void addRemote(String remoteName, String remotePath) {
+        Config config = Config.load();
+        if(config.remote.containsKey(remoteName)){
+            throw new GitletException("A remote with that name already exists.");
+        }
+        config.add(remoteName, remotePath.replace("/", File.separator));
+        config.save();
+    }
+
+
+    public static void rmRemote(String remoteName) {
+        Config config = Config.load();
+        if(!config.remote.containsKey(remoteName)){
+            throw new GitletException("A remote with that name does not exist.");
+        }
+        config.remote.remove(remoteName);
+        config.save();
+    }
+
+    public static void push(String remoteName, String remoteBranch) {
+        File remoteFile = getRemoteFile(remoteName);
+
+        String localBranchPointer = getBranchPointer(readContentsAsString(HEAD_FILE));
+        String temp = localBranchPointer;
+        File remoteBranchFile = join(remoteFile, "refs", "heads", remoteBranch);
+
+        String remotePointer = readContentsAsString(remoteBranchFile);
+        Stack<String> stack = new Stack<>();
+        while(temp != null){
+            if(temp.equals(remotePointer)){
+                break;
+            }
+            stack.push(temp);
+
+            List<String> parents = Commit.load(temp).getParents();
+            if(parents.isEmpty()){
+                temp = null;
+            }else{
+                temp = parents.get(0);
+            }
+        }
+
+        if(temp == null && remoteBranchFile.exists()){
+            throw new GitletException("Please pull down remote changes before pushing.");
+        }
+
+        File remoteCommitDir = join(remoteFile, "objects", "commit");
+        File remoteBlobDir = join(remoteFile, "objects", "blob");
+        while(!stack.isEmpty()){
+            String commitId = stack.pop();
+            Commit commit = Commit.load(commitId);
+            commit.getBlobs().forEach((fileName, blobId) -> {
+                copy(join(remoteBlobDir, blobId), join(BLOB_DIR, blobId));
+            });
+            copy(join(remoteCommitDir, commitId), join(COMMIT_DIR, commitId));
+        }
+
+        Utils.writeContents(remoteBranchFile, localBranchPointer);
+        forwardBranch(remoteName + File.separator + remoteBranch, localBranchPointer);
+    }
+
+    private static File getRemoteFile(String remoteName) {
+        Config config = Config.load();
+        if(!config.remote.containsKey(remoteName)){
+            throw new GitletException("Remote name not found.");
+        }
+
+        File remoteFile = join(CWD, config.remote.get(remoteName));
+        if(!remoteFile.exists()){
+            throw new GitletException("Remote directory not found.");
+        }
+        return remoteFile;
+    }
+
+    public static void fetch(String remoteName, String remoteBranch) {
+        File remoteFile = getRemoteFile(remoteName);
+        File remoteBranchFile = join(remoteFile, "refs", "heads", remoteBranch);
+        if(!remoteBranchFile.exists()){
+            throw new GitletException("That remote does not have that branch.");
+        }
+
+        File remoteCommitFile = join(remoteFile, "objects", "commit");
+        File remoteBlobFile = join(remoteFile, "objects", "blob");
+        String remotePointer = readContentsAsString(remoteBranchFile);
+        String currentRemotePointer = getRemotePointer(remoteName, remoteBranch);
+        while(!remotePointer.equals(currentRemotePointer)){
+            Commit commit = Commit.remoteLoad(remoteCommitFile, remotePointer);
+            commit.getBlobs().forEach((fileName, blobId) -> {
+                copy(join(BLOB_DIR, blobId), join(remoteBlobFile, blobId));
+            });
+            copy(join(COMMIT_DIR, remotePointer), join(remoteCommitFile, remotePointer));
+
+            List<String> parents = commit.getParents();
+            if(parents.isEmpty()){
+                break;
+            }
+            remotePointer = parents.get(0);
+        }
+
+        copyContents(join(REMOTE_DIR, remoteName, remoteBranch), remoteBranchFile);
+    }
+
+    private static String getRemotePointer(String remoteName, String remoteBranch) {
+        try {
+            return readContentsAsString(join(REMOTE_DIR, remoteName, remoteBranch));
+        } catch (Exception e) {
+            return "None";
+        }
+    }
+
+    public static void pull(String remoteName, String remoteBranch) {
+        fetch(remoteName, remoteBranch);
+        _merge(REMOTE_DIR, remoteName + File.separator + remoteBranch);
     }
 }

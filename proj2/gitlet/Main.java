@@ -79,6 +79,21 @@ public class Main {
                 case "merge":
                     Repository.merge(args[1]);
                     break;
+                case "add-remote":
+                    Repository.addRemote(args[1], args[2]);
+                    break;
+                case "rm-remote":
+                    Repository.rmRemote(args[1]);
+                    break;
+                case "push":
+                    Repository.push(args[1], args[2]);
+                    break;
+                case "fetch":
+                    Repository.fetch(args[1], args[2]);
+                    break;
+                case "pull":
+                    Repository.pull(args[1], args[2]);
+                    break;
                 default:
                     throw new GitletException("No command with that name exists.");
             }

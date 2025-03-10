@@ -2,6 +2,7 @@ package gitlet;
 
 // TODO: any imports you need here
 
+import java.io.File;
 import java.io.Serializable;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -81,6 +82,13 @@ public class Commit implements Serializable {
     }
 
     public static Commit load(String commitId) {
+        if(commitId.length() < 40){
+            commitId = getFullCommitId(commitId);
+        }
+        return Utils.readObject(Utils.join(Repository.COMMIT_DIR, commitId), Commit.class);
+    }
+
+    public static String getFullCommitId(String commitId) {
         List<String> commitIds = Utils.plainFilenamesIn(Repository.COMMIT_DIR);
         List<String> matching = commitIds.stream()
                 .filter(id -> id.startsWith(commitId))
@@ -90,7 +98,11 @@ public class Commit implements Serializable {
         }else if(matching.size() > 1) {
             throw new GitletException("Ambiguous commit id.");
         }
-        return Utils.readObject(Utils.join(Repository.COMMIT_DIR, matching.get(0)), Commit.class);
+        return matching.get(0);
+    }
+
+    public static Commit remoteLoad(File remoteCommitFile, String commitId){
+        return Utils.readObject(Utils.join(remoteCommitFile, commitId), Commit.class);
     }
 
     public String getID(){
