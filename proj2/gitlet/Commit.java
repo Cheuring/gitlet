@@ -1,6 +1,5 @@
 package gitlet;
 
-// TODO: any imports you need here
 
 import java.io.File;
 import java.io.Serializable;
@@ -10,14 +9,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /** Represents a gitlet commit object.
- *  TODO: It's a good idea to give a description here of what else this Class
- *  does at a high level.
  *
- *  @author TODO
+ *  @author Cheuring
  */
 public class Commit implements Serializable {
     /**
-     * TODO: add instance variables here.
      *
      * List all instance variables of the Commit class here with a useful
      * comment above them describing what that variable represents and how that
@@ -40,53 +36,46 @@ public class Commit implements Serializable {
                 '}';
     }
 
-    /* TODO: fill in the rest of this class. */
-    public Commit(String message, TreeMap<String, String> blobs, List<String> parents){
+    public Commit(String message, TreeMap<String, String> blobs, List<String> parents) {
         this(new Date(), message, blobs, parents);
     }
-    public Commit(Date timestamp, String message, TreeMap<String, String> blobs, List<String> parents){
+
+    public Commit(Date timestamp, String message, TreeMap<String, String> blobs, List<String> parents) {
         this.timestamp = timestamp;
         this.message = message;
         this.parents = parents;
-        if(parents.isEmpty()){
+        if (parents.isEmpty()) {
             this.blobs = blobs;
-        }else{
+        } else {
             Commit parent = load(parents.get(0));
             this.blobs = parent.blobs;
             this.blobs.putAll(blobs);
-//            blobs.forEach((k, v) -> {
-//                if(!v.startsWith("-")){
-//                    this.blobs.put(k, v);
-//                }else{
-//                    this.blobs.remove(k);
-//                }
-//            });
         }
     }
 
-    public String getTimestamp(){
+    public String getTimestamp() {
         return timestampConverter(timestamp);
     }
 
-    public String getMessage(){
+    public String getMessage() {
         return message;
     }
 
-    public List<String> getParents(){
+    public List<String> getParents() {
         return parents;
     }
 
-    private static String timestampConverter(Date date){
+    private static String timestampConverter(Date date) {
         DateFormat dateFormat = new SimpleDateFormat("EEE MMM d HH:mm:ss yyyy Z", Locale.US);
         return dateFormat.format(date);
     }
 
     public static Commit load(String commitId) {
-        if(commitId.length() < 40){
+        if (commitId.length() < Utils.UID_LENGTH) {
             commitId = getFullCommitId(commitId);
         }
         File commitFile = Utils.join(Repository.COMMIT_DIR, commitId);
-        if(!commitFile.exists()){
+        if (!commitFile.exists()) {
             throw new GitletException("No commit with that id exists.");
         }
         return Utils.readObject(commitFile, Commit.class);
@@ -97,19 +86,19 @@ public class Commit implements Serializable {
         List<String> matching = commitIds.stream()
                 .filter(id -> id.startsWith(commitId))
                 .collect(Collectors.toList());
-        if(matching.isEmpty()){
+        if (matching.isEmpty()) {
             throw new GitletException("No commit with that id exists.");
-        }else if(matching.size() > 1) {
+        } else if (matching.size() > 1) {
             throw new GitletException("Ambiguous commit id.");
         }
         return matching.get(0);
     }
 
-    public static Commit remoteLoad(File remoteCommitFile, String commitId){
+    public static Commit remoteLoad(File remoteCommitFile, String commitId) {
         return Utils.readObject(Utils.join(remoteCommitFile, commitId), Commit.class);
     }
 
-    public String getID(){
+    public String getID() {
         return Utils.sha1(timestampConverter(timestamp), message, blobs.toString(), parents.toString());
     }
 
@@ -117,11 +106,11 @@ public class Commit implements Serializable {
         Utils.writeObject(Utils.join(Repository.COMMIT_DIR, getID()), this);
     }
 
-    public boolean containsFile(String fileName){
+    public boolean containsFile(String fileName) {
         return blobs.containsKey(fileName) && !blobs.get(fileName).startsWith("-");
     }
 
-    public String getBlobId(String fileName){
+    public String getBlobId(String fileName) {
         return blobs.get(fileName);
     }
 
@@ -129,10 +118,10 @@ public class Commit implements Serializable {
         return blobs;
     }
 
-    public void log(){
+    public void log() {
         System.out.println("===");
         System.out.println("commit " + getID());
-        if(parents.size() > 1){
+        if (parents.size() > 1) {
             System.out.println("Merge: " + parents.get(0).substring(0, 7) + " " + parents.get(1).substring(0, 7));
         }
         System.out.println("Date: " + getTimestamp());

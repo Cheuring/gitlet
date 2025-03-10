@@ -1,8 +1,6 @@
 package gitlet;
 
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.TreeMap;
 
 public class Stage implements Serializable {

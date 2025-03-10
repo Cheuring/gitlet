@@ -26,7 +26,7 @@ public class Blob implements Serializable {
 
     public void save() {
         File writeTo = Utils.join(Repository.OBJECTS_DIR, id);
-        if(writeTo.exists()){
+        if (writeTo.exists()) {
             return;
         }
         Utils.writeObject(Utils.join(Repository.BLOB_DIR, id), this);
@@ -36,7 +36,7 @@ public class Blob implements Serializable {
         return Utils.readObject(Utils.join(Repository.BLOB_DIR, id), Blob.class);
     }
 
-    public static String blobID(File file){
+    public static String blobID(File file) {
         return Utils.sha1(Utils.readContents(file));
     }
 

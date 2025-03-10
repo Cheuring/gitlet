@@ -220,14 +220,14 @@ class Utils {
         }
     }
 
-    static void copy(File dest, File src){
+    static void copy(File dest, File src) {
         try {
             Files.copy(src.toPath(), dest.toPath());
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) { }
     }
 
-    static void copyContents(File dest, File src){
-        if(dest.getParentFile() != null && !dest.getParentFile().exists()){
+    static void copyContents(File dest, File src) {
+        if (dest.getParentFile() != null && !dest.getParentFile().exists()) {
             dest.getParentFile().mkdirs();
         }
         writeContents(dest, readContents(src));
