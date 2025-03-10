@@ -85,7 +85,11 @@ public class Commit implements Serializable {
         if(commitId.length() < 40){
             commitId = getFullCommitId(commitId);
         }
-        return Utils.readObject(Utils.join(Repository.COMMIT_DIR, commitId), Commit.class);
+        File commitFile = Utils.join(Repository.COMMIT_DIR, commitId);
+        if(!commitFile.exists()){
+            throw new GitletException("No commit with that id exists.");
+        }
+        return Utils.readObject(commitFile, Commit.class);
     }
 
     public static String getFullCommitId(String commitId) {
